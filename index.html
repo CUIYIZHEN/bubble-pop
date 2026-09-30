@@ -1,0 +1,1804 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Bubble Pop - 100% 완전 포획 비누방울 퍼즐</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #0f172a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Segoe UI", Roboto, sans-serif;
+    }
+    #game-container {
+      position: relative;
+      width: 100%;
+      max-width: 450px;
+      aspect-ratio: 450 / 750;
+      max-height: 94vh;
+      background: #e0f2fe;
+      border-radius: 28px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.15);
+      display: flex;
+      flex-direction: column;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* 상단 HUD */
+    .hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      padding: 14px 20px;
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    .hud-left {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+    }
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+    }
+    .hud-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: #64748b;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .hud-value {
+      font-size: 20px;
+      font-weight: 900;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: #1e293b;
+      letter-spacing: -0.02em;
+    }
+    .hud-value.urgent {
+      color: #ef4444;
+      animation: pulse 1s infinite;
+    }
+    .hud-value.survival {
+      color: #059669;
+    }
+    .hud-divider {
+      width: 1px;
+      height: 28px;
+      background: #cbd5e1;
+    }
+    .sound-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.8);
+      background: rgba(255, 255, 255, 0.85);
+      color: #475569;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+      transition: all 0.15s ease;
+    }
+    .sound-btn:active {
+      transform: scale(0.92);
+      background: #ffffff;
+    }
+
+    /* 하단 안내 캡슐 */
+    .bottom-guide {
+      position: absolute;
+      bottom: 12px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .bottom-guide span {
+      display: inline-block;
+      padding: 7px 18px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.95);
+      border-radius: 9999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      color: #334155;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.07);
+      letter-spacing: -0.01em;
+    }
+
+    /* 오버레이 모달 (Intro / Game Over / Victory) */
+    .modal-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      animation: fadeIn 0.25s ease-out forwards;
+    }
+    .modal-overlay.intro {
+      background: rgba(8, 47, 73, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .modal-overlay.gameover {
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .modal-overlay.victory {
+      background: rgba(12, 74, 110, 0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .modal-icon {
+      width: 68px;
+      height: 68px;
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      font-size: 32px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.18);
+    }
+    .modal-title {
+      font-size: 28px;
+      font-weight: 900;
+      color: #ffffff;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+    .modal-desc {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #bae6fd;
+      margin-bottom: 28px;
+      max-width: 290px;
+      font-weight: 500;
+    }
+    .stats-card {
+      width: 100%;
+      max-width: 290px;
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 18px;
+      padding: 16px;
+      margin-bottom: 24px;
+      text-align: left;
+    }
+    .stats-card.victory {
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+    }
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #94a3b8;
+    }
+    .stat-row:last-child {
+      margin-bottom: 0;
+    }
+    .stat-row.victory {
+      color: #e0f2fe;
+    }
+    .stat-val {
+      font-family: ui-monospace, monospace;
+      font-weight: 800;
+      font-size: 14px;
+    }
+
+    .btn-action {
+      width: 100%;
+      max-width: 290px;
+      padding: 15px 24px;
+      border-radius: 18px;
+      border: none;
+      font-size: 16px;
+      font-weight: 800;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+      transition: all 0.15s ease;
+    }
+    .btn-action:active {
+      transform: scale(0.96);
+    }
+    .btn-play {
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      box-shadow: 0 10px 25px rgba(14, 165, 233, 0.35);
+    }
+    .btn-retry {
+      background: linear-gradient(135deg, #ef4444, #e11d48);
+      box-shadow: 0 10px 25px rgba(239, 68, 68, 0.35);
+    }
+    .btn-victory {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 10px 25px rgba(16, 185, 129, 0.35);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- 상단 HUD -->
+    <div class="hud">
+      <div class="hud-left">
+        <div class="hud-item">
+          <span class="hud-label">남은 시간</span>
+          <span id="time-left" class="hud-value">03:00</span>
+        </div>
+        <div class="hud-divider"></div>
+        <div class="hud-item">
+          <span class="hud-label">생존 시간</span>
+          <span id="survival-time" class="hud-value survival">0초</span>
+        </div>
+      </div>
+      <button id="sound-btn" class="sound-btn" title="소리 토글">
+        <svg id="sound-icon-on" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+        </svg>
+        <svg id="sound-icon-off" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+          <line x1="23" y1="9" x2="17" y2="15"></line>
+          <line x1="17" y1="9" x2="23" y2="15"></line>
+        </svg>
+      </button>
+    </div>
+
+    <!-- 캔버스 -->
+    <canvas id="canvas" width="450" height="750"></canvas>
+
+    <!-- 하단 캡슐 안내 -->
+    <div class="bottom-guide">
+      <span>드래그로 조준 &nbsp;·&nbsp; 길게 눌러 크기 조절 &nbsp;·&nbsp; 손을 떼어 발사</span>
+    </div>
+
+    <!-- 인트로 모달 -->
+    <div id="intro-modal" class="modal-overlay intro">
+      <div class="modal-icon" style="background: linear-gradient(135deg, #38bdf8, #818cf8); color: #fff;">
+        ⭐
+      </div>
+      <h1 class="modal-title">Bubble Pop</h1>
+      <p class="modal-desc">
+        아이템을 100% 완전히 감싸서 포획하세요.<br />
+        단 1개라도 바닥에 닿지 않게 180초 동안 하늘을 지켜내면 승리!
+      </p>
+      <button id="start-btn" class="btn-action btn-play">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="5 3 19 12 5 21 5 3"></polygon>
+        </svg>
+        게임 시작
+      </button>
+    </div>
+
+    <!-- 게임 오버 모달 -->
+    <div id="gameover-modal" class="modal-overlay gameover" style="display:none;">
+      <div class="modal-icon" style="background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); color: #ef4444;">
+        ⚠️
+      </div>
+      <h2 class="modal-title" style="color: #f87171;">아이템 파괴! 미션 실패</h2>
+      <p class="modal-desc" style="color: #cbd5e1; margin-bottom: 20px;">
+        아이템이 바닥과 충돌하여 산산조각 났습니다.
+      </p>
+      <div class="stats-card">
+        <div class="stat-row">
+          <span>생존 시간</span>
+          <span id="gameover-survival" class="stat-val" style="color: #34d399;">0초 / 180초</span>
+        </div>
+        <div class="stat-row">
+          <span>포획한 아이템</span>
+          <span id="gameover-captured" class="stat-val" style="color: #38bdf8;">0 개</span>
+        </div>
+      </div>
+      <button id="retry-btn" class="btn-action btn-retry">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+        </svg>
+        다시 도전
+      </button>
+    </div>
+
+    <!-- 승리 모달 -->
+    <div id="victory-modal" class="modal-overlay victory" style="display:none;">
+      <div class="modal-icon" style="background: rgba(251, 191, 36, 0.2); border: 1px solid rgba(251, 191, 36, 0.4); color: #f59e0b;">
+        🏆
+      </div>
+      <h2 class="modal-title">180초 완벽 방어 성공!</h2>
+      <p class="modal-desc" style="color: #6ee7b7; margin-bottom: 20px;">
+        단 하나의 아이템도 놓치지 않고 3분 동안 생존했습니다!
+      </p>
+      <div class="stats-card victory">
+        <div class="stat-row victory">
+          <span>생존 시간</span>
+          <span class="stat-val" style="color: #a7f3d0;">180초 (3분)</span>
+        </div>
+        <div class="stat-row victory">
+          <span>포획한 아이템</span>
+          <span id="victory-captured" class="stat-val" style="color: #bae6fd;">0 개</span>
+        </div>
+      </div>
+      <button id="victory-btn" class="btn-action btn-victory">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+        </svg>
+        다시 플레이
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       1. WEB AUDIO API SYNTHESIZER
+       ========================================================================= */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+        this.chargeOsc = null;
+        this.chargeGain = null;
+      }
+
+      initContext() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioCtx();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      setSoundEnabled(val) {
+        this.enabled = val;
+        if (!val) {
+          this.stopCharge();
+        }
+      }
+
+      startCharge() {
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        this.stopCharge();
+
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+
+          gain.gain.setValueAtTime(0.001, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 0.08);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start();
+          this.chargeOsc = osc;
+          this.chargeGain = gain;
+        } catch (e) {}
+      }
+
+      updateChargePitch(ratio) {
+        if (!this.enabled || !this.ctx || !this.chargeOsc) return;
+        try {
+          const freq = 220 + Math.pow(Math.min(1, Math.max(0, ratio)), 1.2) * 500;
+          this.chargeOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.04);
+        } catch (e) {}
+      }
+
+      stopCharge() {
+        if (this.chargeOsc && this.chargeGain && this.ctx) {
+          try {
+            const curTime = this.ctx.currentTime;
+            this.chargeGain.gain.cancelScheduledValues(curTime);
+            this.chargeGain.gain.setValueAtTime(this.chargeGain.gain.value, curTime);
+            this.chargeGain.gain.linearRampToValueAtTime(0.0001, curTime + 0.03);
+            this.chargeOsc.stop(curTime + 0.04);
+
+            const oscToClean = this.chargeOsc;
+            const gainToClean = this.chargeGain;
+            setTimeout(() => {
+              try {
+                oscToClean.disconnect();
+                gainToClean.disconnect();
+              } catch (e) {}
+            }, 50);
+          } catch (e) {}
+          this.chargeOsc = null;
+          this.chargeGain = null;
+        }
+      }
+
+      playOvercharge() {
+        this.stopCharge();
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(320, t);
+          osc.frequency.exponentialRampToValueAtTime(80, t + 0.22);
+
+          gain.gain.setValueAtTime(0.25, t);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+          };
+          osc.start(t);
+          osc.stop(t + 0.23);
+        } catch (e) {}
+      }
+
+      playLaunchNormal() {
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(420, t);
+          osc.frequency.exponentialRampToValueAtTime(780, t + 0.11);
+
+          gain.gain.setValueAtTime(0.12, t);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+          };
+          osc.start(t);
+          osc.stop(t + 0.13);
+        } catch (e) {}
+      }
+
+      playLaunchHeavy() {
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(160, t);
+          osc.frequency.exponentialRampToValueAtTime(70, t + 0.24);
+
+          gain.gain.setValueAtTime(0.28, t);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+          };
+          osc.start(t);
+          osc.stop(t + 0.25);
+        } catch (e) {}
+      }
+
+      playWallBounce() {
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(320, t);
+          osc.frequency.exponentialRampToValueAtTime(460, t + 0.06);
+
+          gain.gain.setValueAtTime(0.08, t);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+          };
+          osc.start(t);
+          osc.stop(t + 0.07);
+        } catch (e) {}
+      }
+
+      playSuction() {
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(380, t);
+          osc.frequency.exponentialRampToValueAtTime(920, t + 0.08);
+
+          gain.gain.setValueAtTime(0.16, t);
+          gain.gain.linearRampToValueAtTime(0.0001, t + 0.08);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+          };
+          osc.start(t);
+          osc.stop(t + 0.09);
+        } catch (e) {}
+      }
+
+      playEngulf() {
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const osc1 = this.ctx.createOscillator();
+          const gain1 = this.ctx.createGain();
+
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(620, t);
+          osc1.frequency.exponentialRampToValueAtTime(1150, t + 0.16);
+
+          gain1.gain.setValueAtTime(0.2, t);
+          gain1.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+
+          osc1.connect(gain1);
+          gain1.connect(this.ctx.destination);
+
+          osc1.onended = () => {
+            try { osc1.disconnect(); gain.disconnect(); } catch (e) {}
+          };
+          osc1.start(t);
+          osc1.stop(t + 0.17);
+
+          const osc2 = this.ctx.createOscillator();
+          const gain2 = this.ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(1320, t + 0.04);
+          osc2.frequency.exponentialRampToValueAtTime(1780, t + 0.2);
+
+          gain2.gain.setValueAtTime(0.12, t + 0.04);
+          gain2.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+
+          osc2.connect(gain2);
+          gain2.connect(this.ctx.destination);
+
+          osc2.onended = () => {
+            try { osc2.disconnect(); gain2.disconnect(); } catch (e) {}
+          };
+          osc2.start(t + 0.04);
+          osc2.stop(t + 0.21);
+        } catch (e) {}
+      }
+
+      playSizeMiss() {
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(320, t);
+          osc.frequency.exponentialRampToValueAtTime(130, t + 0.11);
+
+          gain.gain.setValueAtTime(0.15, t);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.onended = () => {
+            try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+          };
+          osc.start(t);
+          osc.stop(t + 0.12);
+        } catch (e) {}
+      }
+
+      playGlassShatter() {
+        this.stopCharge();
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const t = this.ctx.currentTime;
+          const bufferSize = this.ctx.sampleRate * 0.45;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.09));
+          }
+
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'highpass';
+          filter.frequency.setValueAtTime(2400, t);
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.4, t);
+          gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          noise.onended = () => {
+            try { noise.disconnect(); filter.disconnect(); gain.disconnect(); } catch (e) {}
+          };
+          noise.start(t);
+          noise.stop(t + 0.43);
+
+          const glassTones = [1980, 2640, 3420];
+          glassTones.forEach((freq, idx) => {
+            if (!this.ctx) return;
+            const osc = this.ctx.createOscillator();
+            const toneGain = this.ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, t);
+
+            toneGain.gain.setValueAtTime(0.18, t);
+            toneGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.42 + idx * 0.05);
+
+            osc.connect(toneGain);
+            toneGain.connect(this.ctx.destination);
+
+            osc.onended = () => {
+              try { osc.disconnect(); toneGain.disconnect(); } catch (e) {}
+            };
+            osc.start(t + idx * 0.01);
+            osc.stop(t + 0.45 + idx * 0.05);
+          });
+        } catch (e) {}
+      }
+
+      playVictory() {
+        this.stopCharge();
+        if (!this.enabled) return;
+        this.initContext();
+        if (!this.ctx) return;
+
+        try {
+          const notes = [523.25, 659.25, 783.99, 1046.5];
+          notes.forEach((freq, i) => {
+            if (!this.ctx) return;
+            const t = this.ctx.currentTime + i * 0.13;
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, t);
+
+            gain.gain.setValueAtTime(0.2, t);
+            gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+
+            osc.onended = () => {
+              try { osc.disconnect(); gain.disconnect(); } catch (e) {}
+            };
+            osc.start(t);
+            osc.stop(t + 0.46);
+          });
+        } catch (e) {}
+      }
+    }
+
+    const sounds = new SoundEngine();
+
+    /* =========================================================================
+       2. GAME CONSTANTS & STATE
+       ========================================================================= */
+    const CANVAS_WIDTH = 450;
+    const CANVAS_HEIGHT = 750;
+    const LAUNCHER_X = 225;
+    const LAUNCHER_Y = 695;
+    const FLOOR_Y = 660; // 하단 바닥 경계선 (Y_bottom = 660)
+    const DANGER_ZONE_Y = CANVAS_HEIGHT * 0.8; // 600px (하단 20% 영역)
+    const TOTAL_GAME_TIME = 180;
+    const CHARGE_RATE = 65;
+    const MAX_RADIUS = 80;
+    const OVERCHARGE_LIMIT = 2.5;
+    const LAUNCH_SPEED = 700;
+    const MAX_ANGLE = (65 * Math.PI) / 180;
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    const timeLeftEl = document.getElementById('time-left');
+    const survivalTimeEl = document.getElementById('survival-time');
+    const introModal = document.getElementById('intro-modal');
+    const gameoverModal = document.getElementById('gameover-modal');
+    const victoryModal = document.getElementById('victory-modal');
+    const gameoverSurvivalEl = document.getElementById('gameover-survival');
+    const gameoverCapturedEl = document.getElementById('gameover-captured');
+    const victoryCapturedEl = document.getElementById('victory-captured');
+
+    const soundBtn = document.getElementById('sound-btn');
+    const soundIconOn = document.getElementById('sound-icon-on');
+    const soundIconOff = document.getElementById('sound-icon-off');
+    const startBtn = document.getElementById('start-btn');
+    const retryBtn = document.getElementById('retry-btn');
+    const victoryBtn = document.getElementById('victory-btn');
+
+    let soundEnabled = true;
+
+    const game = {
+      state: 'intro',
+      items: [],
+      upcomingSpawns: [],
+      bubbles: [],
+      clouds: [
+        { x: 30, y: 110, scale: 1.1, speed: 7.5, alpha: 0.7 },
+        { x: 260, y: 70, scale: 0.9, speed: 5.5, alpha: 0.6 },
+        { x: 140, y: 210, scale: 1.25, speed: 9, alpha: 0.65 },
+        { x: 350, y: 310, scale: 0.8, speed: 5, alpha: 0.55 }
+      ],
+      particles: [],
+      floatingTexts: [],
+      nextItemId: 1,
+      nextBubbleId: 1,
+      nextTextId: 1,
+      aimAngle: 0,
+      isCharging: false,
+      chargeStartTime: 0,
+      currentRadius: 0,
+      isOvercharged: false,
+      timeSinceLastSpawn: 0,
+      nextSpawnInterval: 1.0,
+      timeLeft: TOTAL_GAME_TIME,
+      survivalTime: 0,
+      capturedCount: 0,
+      shakeTime: 0,
+      shakeIntensity: 0,
+      redFlashAlpha: 0,
+    };
+
+    function drawStar(context, cx, cy, spikes, outerRadius, innerRadius, rot) {
+      const outR = Math.max(0.1, outerRadius);
+      const inR = Math.max(0.05, innerRadius);
+      let rotAngle = -Math.PI / 2 + (rot || 0);
+      const step = Math.PI / spikes;
+      context.beginPath();
+      for (let i = 0; i < spikes; i++) {
+        let x = cx + Math.cos(rotAngle) * outR;
+        let y = cy + Math.sin(rotAngle) * outR;
+        context.lineTo(x, y);
+        rotAngle += step;
+
+        x = cx + Math.cos(rotAngle) * inR;
+        y = cy + Math.sin(rotAngle) * inR;
+        context.lineTo(x, y);
+        rotAngle += step;
+      }
+      context.closePath();
+    }
+
+    function formatTime(secs) {
+      const m = Math.floor(secs / 60);
+      const s = Math.floor(secs % 60);
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function updateHUD() {
+      const remaining = Math.max(0, Math.ceil(game.timeLeft));
+      timeLeftEl.textContent = formatTime(remaining);
+      if (remaining <= 30) {
+        timeLeftEl.classList.add('urgent');
+      } else {
+        timeLeftEl.classList.remove('urgent');
+      }
+      survivalTimeEl.textContent = `${Math.floor(game.survivalTime)}초`;
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      sounds.setSoundEnabled(soundEnabled);
+      if (soundEnabled) {
+        soundIconOn.style.display = 'block';
+        soundIconOff.style.display = 'none';
+      } else {
+        soundIconOn.style.display = 'none';
+        soundIconOff.style.display = 'block';
+      }
+    }
+
+    soundBtn.addEventListener('click', toggleSound);
+
+    function startGame() {
+      sounds.stopCharge();
+      sounds.setSoundEnabled(soundEnabled);
+
+      game.state = 'playing';
+      game.items = [];
+      game.upcomingSpawns = [];
+      game.bubbles = [];
+      game.particles = [];
+      game.floatingTexts = [];
+      game.nextItemId = 1;
+      game.nextBubbleId = 1;
+      game.nextTextId = 1;
+
+      game.aimAngle = 0;
+      game.isCharging = false;
+      game.chargeStartTime = 0;
+      game.currentRadius = 0;
+      game.isOvercharged = false;
+
+      game.timeSinceLastSpawn = 0;
+      game.nextSpawnInterval = 1.0;
+      game.timeLeft = TOTAL_GAME_TIME;
+      game.survivalTime = 0;
+      game.capturedCount = 0;
+
+      game.shakeTime = 0;
+      game.shakeIntensity = 0;
+      game.redFlashAlpha = 0;
+
+      updateHUD();
+
+      introModal.style.display = 'none';
+      gameoverModal.style.display = 'none';
+      victoryModal.style.display = 'none';
+    }
+
+    startBtn.addEventListener('click', startGame);
+    retryBtn.addEventListener('click', startGame);
+    victoryBtn.addEventListener('click', startGame);
+
+    function spawnParticles(x, y, color, count = 14) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 60 + Math.random() * 180;
+        game.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          r: 1.5 + Math.random() * 2.5,
+          color,
+          alpha: 1,
+          decay: 1.8 + Math.random() * 1.5,
+        });
+      }
+    }
+
+    function spawnCatchStars(x, y) {
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2 + (Math.random() - 0.5) * 0.25;
+        const speed = 120 + Math.random() * 120;
+        game.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          r: 4.5 + Math.random() * 2.5,
+          color: '#ffd166',
+          alpha: 1,
+          decay: 1.6 + Math.random() * 0.8,
+          isStar: true,
+          rot: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 8,
+        });
+      }
+    }
+
+    function spawnRing(x, y, r, color) {
+      game.particles.push({
+        x,
+        y,
+        vx: 0,
+        vy: 0,
+        r: Math.max(1, r),
+        color,
+        alpha: 0.9,
+        decay: 3.8,
+        isRing: true,
+      });
+    }
+
+    function addCatchText(x, y) {
+      game.floatingTexts.push({
+        id: game.nextTextId++,
+        text: 'CATCH!',
+        x,
+        y,
+        color: '#ffd166',
+        strokeColor: '#ffffff',
+        alpha: 1,
+        scale: 0.6,
+        scaleGrowth: 2.4,
+        vy: -55,
+        fontSize: 18,
+      });
+    }
+
+    function addMissText(x, y) {
+      game.floatingTexts.push({
+        id: game.nextTextId++,
+        text: 'MISS!',
+        x,
+        y,
+        color: '#ef4444',
+        strokeColor: '#ffffff',
+        alpha: 1,
+        scale: 0.9,
+        scaleGrowth: 0.4,
+        vy: -40,
+        fontSize: 13,
+      });
+    }
+
+    // 1. [스펙 1]: 상단 낙하 예고 (Spawn Indicator)
+    function scheduleUpcomingSpawns() {
+      const sizes = [15, 25, 40, 55];
+      const roll = Math.random();
+
+      let count = 1;
+      if (roll > 0.85) count = 3;
+      else if (roll > 0.55) count = 2;
+
+      for (let c = 0; c < count; c++) {
+        const r = sizes[Math.floor(Math.random() * sizes.length)];
+        const minX = r + 24;
+        const maxX = CANVAS_WIDTH - (r + 24);
+        const x = minX + Math.random() * (maxX - minX);
+        const speedMult = 0.95 + Math.random() * 0.1;
+
+        game.upcomingSpawns.push({
+          id: game.nextItemId++,
+          x,
+          r,
+          speedMult,
+          timer: 0.5 + c * 0.18, // 0.5초 전 예고 반짝임 시작
+        });
+      }
+    }
+
+    function launchBubble() {
+      if (game.isOvercharged || game.currentRadius < 6) {
+        game.isCharging = false;
+        game.currentRadius = 0;
+        sounds.stopCharge();
+        return;
+      }
+
+      const r = game.currentRadius;
+      const angle = game.aimAngle;
+      const dirX = Math.sin(angle);
+      const dirY = -Math.cos(angle);
+
+      const bx = LAUNCHER_X + dirX * (22 + r * 0.3);
+      const by = LAUNCHER_Y + dirY * (22 + r * 0.3);
+
+      game.bubbles.push({
+        id: game.nextBubbleId++,
+        x: bx,
+        y: by,
+        r,
+        vx: dirX * LAUNCH_SPEED,
+        vy: dirY * LAUNCH_SPEED,
+        capturePhase: null, // 'suction', 'pause'
+        capturingItemId: null,
+        suctionTimer: 0,
+        freezeTimer: 0,
+        itemStartX: 0,
+        itemStartY: 0,
+      });
+
+      if (r >= 60) {
+        sounds.playLaunchHeavy();
+        game.shakeTime = 0.2;
+        game.shakeIntensity = 7;
+        spawnRing(bx, by, r * 1.3, 'rgba(255, 255, 255, 0.85)');
+      } else {
+        sounds.playLaunchNormal();
+        spawnRing(bx, by, r * 1.1, 'rgba(255, 255, 255, 0.6)');
+      }
+
+      game.isCharging = false;
+      game.currentRadius = 0;
+    }
+
+    function updatePointerAngle(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
+      const px = (clientX - rect.left) * scaleX;
+      const py = (clientY - rect.top) * scaleY;
+
+      const dx = px - LAUNCHER_X;
+      const dy = py - LAUNCHER_Y;
+      if (dy < 0) {
+        const angle = Math.atan2(dx, -dy);
+        game.aimAngle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, angle));
+      }
+    }
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (game.state !== 'playing') return;
+      updatePointerAngle(e.clientX, e.clientY);
+      game.isCharging = true;
+      game.chargeStartTime = performance.now();
+      game.currentRadius = 0;
+      game.isOvercharged = false;
+      sounds.startCharge();
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (game.state !== 'playing') return;
+      updatePointerAngle(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('pointerup', () => {
+      if (game.state !== 'playing') return;
+      if (game.isCharging) {
+        launchBubble();
+      }
+    });
+
+    /* =========================================================================
+       3. 메인 게임 루프 & 자석 포획(Magnet Suction)
+       ========================================================================= */
+    let lastTime = performance.now();
+
+    function loop(currentTime) {
+      const dt = Math.min(0.1, (currentTime - lastTime) / 1000);
+      lastTime = currentTime;
+
+      if (game.state === 'playing') {
+        game.timeLeft = Math.max(0, game.timeLeft - dt);
+        game.survivalTime = TOTAL_GAME_TIME - game.timeLeft;
+        updateHUD();
+
+        // 승리 조건: 180초 동안 바닥 접촉 없이 생존
+        if (game.timeLeft <= 0) {
+          game.state = 'victory';
+          sounds.playVictory();
+          victoryCapturedEl.textContent = `${game.capturedCount} 개`;
+          victoryModal.style.display = 'flex';
+          for (let i = 0; i < 40; i++) {
+            spawnParticles(
+              Math.random() * CANVAS_WIDTH,
+              Math.random() * (CANVAS_HEIGHT * 0.6),
+              ['#38bdf8', '#ffd166', '#f472b6', '#a78bfa'][Math.floor(Math.random() * 4)],
+              18
+            );
+          }
+        }
+
+        // 4. [스펙 4]: 차징 2.5초 초과 자폭 시 "팡-!" 사운드 + 2px 화면 흔들림과 함께 발사 취소
+        if (game.isCharging && !game.isOvercharged) {
+          const elapsed = (currentTime - game.chargeStartTime) / 1000;
+          game.currentRadius = Math.min(MAX_RADIUS, elapsed * CHARGE_RATE);
+          sounds.updateChargePitch(game.currentRadius / MAX_RADIUS);
+
+          if (elapsed >= OVERCHARGE_LIMIT || game.currentRadius >= MAX_RADIUS) {
+            game.isOvercharged = true;
+            game.isCharging = false;
+            sounds.playOvercharge();
+            game.shakeTime = 0.12;
+            game.shakeIntensity = 2.0; // 2px 화면 흔들림
+
+            spawnParticles(
+              LAUNCHER_X + Math.sin(game.aimAngle) * 35,
+              LAUNCHER_Y - Math.cos(game.aimAngle) * 35,
+              '#ef4444',
+              22
+            );
+            addMissText(LAUNCHER_X, LAUNCHER_Y - 45);
+            game.currentRadius = 0;
+          }
+        }
+
+        // 난이도: 초반 속도 50px/s로 천천히 낙하, 180초 동안 서서히 속도 상승
+        const t = Math.min(180, game.survivalTime);
+        const vFallBase = 50 + (t / 180) * 75;
+        const baseInterval = 3.8 - (t / 180) * 1.8;
+
+        game.timeSinceLastSpawn += dt;
+        if (game.timeSinceLastSpawn >= game.nextSpawnInterval) {
+          scheduleUpcomingSpawns();
+          game.timeSinceLastSpawn = 0;
+          game.nextSpawnInterval = baseInterval * (0.9 + Math.random() * 0.2);
+        }
+
+        // 1. [스펙 1]: 상단 낙하 예고 타이머 업데이트 및 실제 스폰
+        for (let u = game.upcomingSpawns.length - 1; u >= 0; u--) {
+          const up = game.upcomingSpawns[u];
+          up.timer -= dt;
+          if (up.timer <= 0) {
+            game.items.push({
+              id: up.id,
+              x: up.x,
+              y: -up.r - 5,
+              r: up.r,
+              speedMult: up.speedMult,
+              starRotation: Math.random() * Math.PI * 2,
+              starRotSpeed: (Math.random() - 0.5) * 2,
+              isCaptured: false,
+            });
+            game.upcomingSpawns.splice(u, 1);
+          }
+        }
+
+        // 아이템 낙하 및 바닥 접촉 판정 (Y_bottom = 660)
+        for (let i = game.items.length - 1; i >= 0; i--) {
+          const item = game.items[i];
+          if (!item.isCaptured) {
+            item.y += vFallBase * item.speedMult * dt;
+          }
+          item.starRotation += item.starRotSpeed * dt;
+
+          // 단 1개라도 바닥 경계선(Y=660)에 닿으면 즉시 패배 (게임 오버)
+          if (!item.isCaptured && item.y + item.r >= FLOOR_Y) {
+            game.state = 'gameover';
+            sounds.playGlassShatter();
+            game.shakeTime = 0.5;
+            game.shakeIntensity = 16;
+            game.redFlashAlpha = 0.65;
+
+            spawnParticles(item.x, FLOOR_Y, '#ffd166', 45);
+            spawnRing(item.x, FLOOR_Y, 70, 'rgba(239, 68, 68, 0.85)');
+
+            gameoverSurvivalEl.textContent = `${Math.floor(game.survivalTime)}초 / 180초`;
+            gameoverCapturedEl.textContent = `${game.capturedCount} 개`;
+            gameoverModal.style.display = 'flex';
+            break;
+          }
+        }
+
+        // 2 & 3. [스펙 2 & 3]: 2/3 면적 겹침 + 자석 포획(Magnet Suction) 및 충돌/MISS 로직
+        for (let b = game.bubbles.length - 1; b >= 0; b--) {
+          const bubble = game.bubbles[b];
+
+          // 2) 자석 포획 연출 진행 중인 버블
+          if (bubble.capturePhase === 'suction') {
+            bubble.suctionTimer = (bubble.suctionTimer || 0.08) - dt;
+            const progress = Math.min(1, Math.max(0, 1 - (bubble.suctionTimer || 0) / 0.08));
+
+            if (bubble.capturingItemId) {
+              const matchedItem = game.items.find(it => it.id === bubble.capturingItemId);
+              if (matchedItem && bubble.itemStartX !== undefined && bubble.itemStartY !== undefined) {
+                // 0.08초 동안 아이템이 버블 중심점으로 "슉-" 자석처럼 빨려 들어옴
+                matchedItem.x = bubble.itemStartX + (bubble.x - bubble.itemStartX) * progress;
+                matchedItem.y = bubble.itemStartY + (bubble.y - bubble.itemStartY) * progress;
+              }
+            }
+
+            if (bubble.suctionTimer <= 0) {
+              // 중앙 안착 완료 -> 0.1초 화면 순간 정지 (Micro-pause) 단계로 전환
+              bubble.capturePhase = 'pause';
+              bubble.freezeTimer = 0.1;
+              if (bubble.capturingItemId) {
+                const matchedItem = game.items.find(it => it.id === bubble.capturingItemId);
+                if (matchedItem) {
+                  matchedItem.x = bubble.x;
+                  matchedItem.y = bubble.y;
+                }
+              }
+            }
+            continue;
+          }
+
+          if (bubble.capturePhase === 'pause') {
+            bubble.freezeTimer = (bubble.freezeTimer || 0.1) - dt;
+
+            if (bubble.capturingItemId) {
+              const matchedItem = game.items.find(it => it.id === bubble.capturingItemId);
+              if (matchedItem) {
+                matchedItem.x = bubble.x;
+                matchedItem.y = bubble.y;
+              }
+            }
+
+            // 0.1초 Micro-pause 후: 3px Shake + 별 입자 12개 폭발 + "CATCH!" + 크리스탈 사운드
+            if (bubble.freezeTimer <= 0) {
+              sounds.playEngulf();
+              game.shakeTime = 0.15;
+              game.shakeIntensity = 3.0; // 3px Shake
+
+              game.capturedCount += 1;
+
+              spawnCatchStars(bubble.x, bubble.y);
+              spawnRing(bubble.x, bubble.y, bubble.r * 1.3, 'rgba(255, 255, 255, 0.95)');
+              addCatchText(bubble.x, bubble.y - 12);
+
+              if (bubble.capturingItemId) {
+                const itemIdx = game.items.findIndex(it => it.id === bubble.capturingItemId);
+                if (itemIdx !== -1) {
+                  game.items.splice(itemIdx, 1);
+                }
+              }
+
+              game.bubbles.splice(b, 1);
+            }
+            continue;
+          }
+
+          // 비행 이동 (700px/s)
+          bubble.x += bubble.vx * dt;
+          bubble.y += bubble.vy * dt;
+
+          // 좌/우 벽면 반사
+          if (bubble.x - bubble.r <= 0) {
+            bubble.x = bubble.r;
+            bubble.vx = -bubble.vx;
+            sounds.playWallBounce();
+          } else if (bubble.x + bubble.r >= CANVAS_WIDTH) {
+            bubble.x = CANVAS_WIDTH - bubble.r;
+            bubble.vx = -bubble.vx;
+            sounds.playWallBounce();
+          }
+
+          // 화면 상단 경계(Y <= 0) 도달 시 MISS! 터짐 소멸
+          if (bubble.y - bubble.r <= 0) {
+            sounds.playSizeMiss();
+            spawnParticles(bubble.x, 8, 'rgba(239, 68, 68, 0.75)', 10);
+            addMissText(bubble.x, 22);
+            game.bubbles.splice(b, 1);
+            continue;
+          }
+
+          let bubblePopped = false;
+
+          // 아이템들과의 충돌 판정
+          for (let it = game.items.length - 1; it >= 0; it--) {
+            const item = game.items[it];
+            if (item.isCaptured) continue;
+
+            const dist = Math.hypot(bubble.x - item.x, bubble.y - item.y);
+
+            // 충돌 감지 (d <= R_bubble + R_item)
+            if (dist <= bubble.r + item.r) {
+              // 3. 충돌 및 MISS 로직: 버블이 아이템보다 작을 때 (R_bubble < R_item)
+              if (bubble.r < item.r) {
+                sounds.playSizeMiss();
+                bubblePopped = true;
+
+                const contactX = (bubble.x * item.r + item.x * bubble.r) / (bubble.r + item.r);
+                const contactY = (bubble.y * item.r + item.y * bubble.r) / (bubble.r + item.r);
+
+                spawnParticles(contactX, contactY, 'rgba(239, 68, 68, 0.85)', 14);
+                addMissText(contactX, contactY - 10);
+                break;
+              }
+
+              // 2. 2/3 면적 겹침 + 자석 포획 조건 (R_bubble >= R_item && d <= R_bubble - 0.2 * R_item)
+              if (dist <= bubble.r - 0.2 * item.r) {
+                sounds.playSuction();
+                bubble.capturePhase = 'suction';
+                bubble.suctionTimer = 0.08; // 0.08초 동안 자석 흡입
+                bubble.capturingItemId = item.id;
+                bubble.itemStartX = item.x;
+                bubble.itemStartY = item.y;
+                bubble.vx = 0;
+                bubble.vy = 0;
+
+                item.isCaptured = true;
+                spawnRing(bubble.x, bubble.y, bubble.r * 1.1, 'rgba(255, 255, 255, 0.75)');
+                break;
+              }
+            }
+          }
+
+          if (bubblePopped) {
+            game.bubbles.splice(b, 1);
+          }
+        }
+      }
+
+      // 구름 이동
+      game.clouds.forEach(cloud => {
+        cloud.x += cloud.speed * dt;
+        if (cloud.x > CANVAS_WIDTH + 80) {
+          cloud.x = -120;
+          cloud.y = 30 + Math.random() * 240;
+        }
+      });
+
+      // 파티클 업데이트
+      for (let p = game.particles.length - 1; p >= 0; p--) {
+        const pt = game.particles[p];
+        pt.x += pt.vx * dt;
+        pt.y += pt.vy * dt;
+        pt.alpha -= pt.decay * dt;
+        if (pt.rotSpeed) pt.rot = (pt.rot || 0) + pt.rotSpeed * dt;
+        if (pt.isRing) pt.r += 65 * dt;
+
+        if (pt.alpha <= 0) {
+          game.particles.splice(p, 1);
+        }
+      }
+
+      // 플로팅 텍스트 업데이트
+      for (let tIdx = game.floatingTexts.length - 1; tIdx >= 0; tIdx--) {
+        const ft = game.floatingTexts[tIdx];
+        ft.y += ft.vy * dt;
+        ft.scale += ft.scaleGrowth * dt;
+        ft.alpha -= 1.8 * dt;
+
+        if (ft.alpha <= 0) {
+          game.floatingTexts.splice(tIdx, 1);
+        }
+      }
+
+      // 화면 진동 & 플래시
+      if (game.shakeTime > 0) {
+        game.shakeTime = Math.max(0, game.shakeTime - dt);
+      }
+      if (game.redFlashAlpha > 0) {
+        game.redFlashAlpha = Math.max(0, game.redFlashAlpha - dt * 2.5);
+      }
+
+      /* =========================================================================
+         4. 캔버스 렌더링
+         ========================================================================= */
+      ctx.save();
+
+      // 화면 흔들림 효과
+      if (game.shakeTime > 0) {
+        const shakeMag = (game.shakeTime / 0.5) * game.shakeIntensity;
+        const ox = (Math.random() - 0.5) * 2 * shakeMag;
+        const oy = (Math.random() - 0.5) * 2 * shakeMag;
+        ctx.translate(ox, oy);
+      }
+
+      ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // 맑고 포근한 파스텔 하늘 그라데이션
+      const bgGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+      bgGrad.addColorStop(0, '#e0f2fe');
+      bgGrad.addColorStop(0.45, '#bae6fd');
+      bgGrad.addColorStop(0.85, '#e0f2fe');
+      bgGrad.addColorStop(1, '#f0f9ff');
+      ctx.fillStyle = bgGrad;
+      ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+      // 잔잔한 구름
+      game.clouds.forEach(cloud => {
+        ctx.save();
+        ctx.fillStyle = `rgba(255, 255, 255, ${cloud.alpha})`;
+        ctx.beginPath();
+        const cx = cloud.x, cy = cloud.y, s = cloud.scale;
+        ctx.arc(cx, cy, Math.max(0.1, 26 * s), 0, Math.PI * 2);
+        ctx.arc(cx + 24 * s, cy - 10 * s, Math.max(0.1, 32 * s), 0, Math.PI * 2);
+        ctx.arc(cx + 54 * s, cy, Math.max(0.1, 24 * s), 0, Math.PI * 2);
+        ctx.arc(cx + 28 * s, cy + 10 * s, Math.max(0.1, 26 * s), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      });
+
+      // 1. [스펙 1]: 상단 낙하 예고 (Spawn Indicator) - 천장(Y=15px) 은은한 별빛 스파클
+      // [수정]: 0.5초 전 구간에만 안전하게 렌더링되도록 방어 로직 적용
+      game.upcomingSpawns.forEach(up => {
+        if (up.timer > 0.5) return;
+        ctx.save();
+        const glintProgress = Math.min(1, Math.max(0, 1 - (up.timer / 0.5)));
+        const pulse = Math.max(0, Math.sin(glintProgress * Math.PI));
+        const glintAlpha = Math.max(0, Math.min(1, 0.4 + pulse * 0.6));
+        const glintSize = Math.max(1, 6 + pulse * 8);
+
+        // 외곽 십자 빛살
+        ctx.strokeStyle = `rgba(255, 209, 102, ${glintAlpha})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(up.x - glintSize * 1.5, 15);
+        ctx.lineTo(up.x + glintSize * 1.5, 15);
+        ctx.moveTo(up.x, 15 - glintSize * 1.5);
+        ctx.lineTo(up.x, 15 + glintSize * 1.5);
+        ctx.stroke();
+
+        // 중앙 반짝임 별
+        ctx.save();
+        drawStar(ctx, up.x, 15, 4, Math.max(1, glintSize), Math.max(0.5, glintSize * 0.35), currentTime * 0.005);
+        ctx.fillStyle = `rgba(255, 255, 255, ${glintAlpha})`;
+        ctx.fill();
+        ctx.restore();
+
+        // 링 잔상
+        ctx.strokeStyle = `rgba(255, 209, 102, ${glintAlpha * 0.5})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(up.x, 15, Math.max(0.1, glintSize * 0.8), 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.restore();
+      });
+
+      // 4. [스펙 4]: 바닥 위험선 연출 - 하단 20% 영역(Y > 600) 이하로 내려오면 붉은색 반짝임(Blink Pulse)
+      const hasDangerItem = game.items.some(it => !it.isCaptured && it.y >= DANGER_ZONE_Y);
+
+      ctx.save();
+      const floorGrad = ctx.createLinearGradient(0, FLOOR_Y - 25, 0, CANVAS_HEIGHT);
+      if (hasDangerItem) {
+        floorGrad.addColorStop(0, 'rgba(239, 68, 68, 0)');
+        floorGrad.addColorStop(1, 'rgba(239, 68, 68, 0.32)');
+      } else {
+        floorGrad.addColorStop(0, 'rgba(239, 68, 68, 0)');
+        floorGrad.addColorStop(1, 'rgba(239, 68, 68, 0.16)');
+      }
+      ctx.fillStyle = floorGrad;
+      ctx.fillRect(0, FLOOR_Y - 20, CANVAS_WIDTH, CANVAS_HEIGHT - FLOOR_Y + 20);
+
+      // 위험 시 빠른 깜빡임(Blink Pulse), 평소에는 잔잔한 펄스
+      const pulseSpeed = hasDangerItem ? 0.024 : 0.006;
+      const dangerPulse = hasDangerItem
+        ? (0.55 + Math.sin(currentTime * pulseSpeed) * 0.45)
+        : (0.4 + Math.sin(currentTime * pulseSpeed) * 0.3);
+
+      ctx.strokeStyle = `rgba(239, 68, 68, ${dangerPulse})`;
+      ctx.lineWidth = hasDangerItem ? 3.5 : 2.5;
+      ctx.setLineDash([8, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, FLOOR_Y);
+      ctx.lineTo(CANVAS_WIDTH, FLOOR_Y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // [아이템 아트]: 투명 유리 구체 안에 노랗게 반짝이는 5각 별(#FFD166)
+      game.items.forEach(item => {
+        ctx.save();
+        const r = Math.max(0.1, item.r);
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
+        ctx.beginPath();
+        ctx.arc(item.x, item.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        const starOuter = r * 0.54;
+        const starInner = starOuter * 0.44;
+
+        const starGlow = ctx.createRadialGradient(
+          item.x,
+          item.y,
+          1,
+          item.x,
+          item.y,
+          Math.max(4, starOuter * 1.35)
+        );
+        starGlow.addColorStop(0, 'rgba(255, 209, 102, 0.6)');
+        starGlow.addColorStop(1, 'rgba(255, 209, 102, 0)');
+        ctx.fillStyle = starGlow;
+        ctx.beginPath();
+        ctx.arc(item.x, item.y, Math.max(0.1, starOuter * 1.35), 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.save();
+        drawStar(ctx, item.x, item.y, 5, starOuter, starInner, item.starRotation);
+        ctx.fillStyle = '#ffd166';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        ctx.arc(item.x - r * 0.35, item.y - r * 0.35, Math.max(0.1, r * 0.2), 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      });
+
+      // [버블 아트]: 은은하고 영롱한 미니멀 글래스 비누방울
+      game.bubbles.forEach(b => {
+        ctx.save();
+        const r = Math.max(0.1, b.r);
+
+        if (b.capturePhase) {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, Math.max(0.1, r * 1.05), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        const bGrad = ctx.createRadialGradient(
+          b.x - r * 0.3,
+          b.y - r * 0.3,
+          Math.max(0.01, r * 0.05),
+          b.x,
+          b.y,
+          r
+        );
+        bGrad.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
+        bGrad.addColorStop(0.65, 'rgba(224, 242, 254, 0.2)');
+        bGrad.addColorStop(0.9, 'rgba(186, 230, 253, 0.35)');
+        bGrad.addColorStop(1, 'rgba(255, 255, 255, 0.75)');
+
+        ctx.fillStyle = bGrad;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+        ctx.beginPath();
+        ctx.arc(b.x - r * 0.35, b.y - r * 0.35, Math.max(0.1, r * 0.2), 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.beginPath();
+        ctx.arc(b.x + r * 0.28, b.y + r * 0.28, Math.max(0.1, r * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      });
+
+      // 90px 점선 조준선
+      const aimDirX = Math.sin(game.aimAngle);
+      const aimDirY = -Math.cos(game.aimAngle);
+
+      ctx.save();
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([5, 4]);
+      ctx.beginPath();
+      ctx.moveTo(LAUNCHER_X, LAUNCHER_Y);
+      ctx.lineTo(LAUNCHER_X + aimDirX * 90, LAUNCHER_Y + aimDirY * 90);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      // 차징 마지노선 점선 원 (80px)
+      if (game.isCharging) {
+        const px = LAUNCHER_X + aimDirX * (22 + MAX_RADIUS * 0.3);
+        const py = LAUNCHER_Y + aimDirY * (22 + MAX_RADIUS * 0.3);
+
+        ctx.save();
+        const isNearLimit = game.currentRadius >= 70;
+        ctx.strokeStyle = isNearLimit ? 'rgba(239, 68, 68, 0.75)' : 'rgba(2, 132, 199, 0.45)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(px, py, MAX_RADIUS, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+
+      // 차징 프리뷰
+      if (game.isCharging && game.currentRadius > 1) {
+        ctx.save();
+        const r = Math.max(0.1, game.currentRadius);
+        const px = LAUNCHER_X + aimDirX * (22 + MAX_RADIUS * 0.3);
+        const py = LAUNCHER_Y + aimDirY * (22 + MAX_RADIUS * 0.3);
+
+        const isNearOvercharge = r >= 72;
+        const previewGrad = ctx.createRadialGradient(
+          px - r * 0.25,
+          py - r * 0.25,
+          2,
+          px,
+          py,
+          r
+        );
+        if (isNearOvercharge) {
+          previewGrad.addColorStop(0, 'rgba(254, 202, 202, 0.4)');
+          previewGrad.addColorStop(1, 'rgba(239, 68, 68, 0.55)');
+        } else {
+          previewGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)');
+          previewGrad.addColorStop(0.8, 'rgba(224, 242, 254, 0.25)');
+          previewGrad.addColorStop(1, 'rgba(255, 255, 255, 0.75)');
+        }
+
+        ctx.fillStyle = previewGrad;
+        ctx.beginPath();
+        ctx.arc(px, py, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = isNearOvercharge ? '#ef4444' : 'rgba(255, 255, 255, 0.9)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 발사대 터렛
+      ctx.save();
+      ctx.translate(LAUNCHER_X, LAUNCHER_Y);
+      ctx.rotate(game.aimAngle);
+      ctx.fillStyle = '#0284c7';
+      ctx.fillRect(-6, -26, 12, 26);
+      ctx.fillStyle = '#bae6fd';
+      ctx.fillRect(-8, -28, 16, 4);
+      ctx.restore();
+
+      ctx.save();
+      const baseGrad = ctx.createRadialGradient(LAUNCHER_X, LAUNCHER_Y + 4, 3, LAUNCHER_X, LAUNCHER_Y, 20);
+      baseGrad.addColorStop(0, '#38bdf8');
+      baseGrad.addColorStop(0.7, '#0284c7');
+      baseGrad.addColorStop(1, '#0369a1');
+      ctx.fillStyle = baseGrad;
+      ctx.beginPath();
+      ctx.arc(LAUNCHER_X, LAUNCHER_Y, 18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(LAUNCHER_X, LAUNCHER_Y, 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 파티클 (별 파티클 & 링 쇼크웨이브)
+      game.particles.forEach(pt => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, pt.alpha);
+
+        if (pt.isStar) {
+          ctx.save();
+          drawStar(ctx, pt.x, pt.y, 5, Math.max(0.1, pt.r), Math.max(0.05, pt.r * 0.44), pt.rot || 0);
+          ctx.fillStyle = pt.color;
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.restore();
+        } else if (pt.isRing) {
+          ctx.strokeStyle = pt.color;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, Math.max(0.1, pt.r), 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          ctx.fillStyle = pt.color;
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, Math.max(0.1, pt.r), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      });
+
+      // 찰진 CATCH! 및 MISS! 텍스트 연출
+      game.floatingTexts.forEach(ft => {
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, ft.alpha);
+        ctx.translate(ft.x, ft.y);
+        ctx.scale(ft.scale, ft.scale);
+
+        ctx.font = `900 ${ft.fontSize || 14}px system-ui, -apple-system, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        if (ft.strokeColor) {
+          ctx.strokeStyle = ft.strokeColor;
+          ctx.lineWidth = 3.5;
+          ctx.strokeText(ft.text, 0, 0);
+        }
+
+        ctx.fillStyle = ft.color;
+        ctx.fillText(ft.text, 0, 0);
+
+        ctx.restore();
+      });
+
+      // 피격 붉은 플래시
+      if (game.redFlashAlpha > 0) {
+        ctx.save();
+        ctx.fillStyle = `rgba(239, 68, 68, ${game.redFlashAlpha})`;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        ctx.restore();
+      }
+
+      ctx.restore();
+
+      requestAnimationFrame(loop);
+    }
+
+    function initResolution() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = CANVAS_WIDTH * dpr;
+      canvas.height = CANVAS_HEIGHT * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    initResolution();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
